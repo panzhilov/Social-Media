@@ -1,20 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Form,
-  Button,
-  Message,
-  Segment,
-  TextArea,
-  Divider
-} from "semantic-ui-react";
-import {
-  HeaderMessage,
-  FooterMessage
-} from "../components/Common/WelcomeMessage";
+import React, { useState, useEffect, useRef } from "react";
+import { Form, Button, Message, Segment, Divider } from "semantic-ui-react";
 import CommonInputs from "../components/Common/CommonInputs";
 import ImageDropDiv from "../components/Common/ImageDropDiv";
-
-export const regexUserName = /^(?!.*\.\.)(?!.*\.$)[^\W][\w.]{0,29}$/;
+import { HeaderMessage, FooterMessage } from "../components/Common/WelcomeMessage";
+import axios from "axios";
+import baseUrl from "../utils/baseUrl";
+import { registerUser } from "../utils/authUser";
+import uploadPic from "../utils/uploadPicToCloudinary";
+const regexUserName = /^(?!.*\.\.)(?!.*\.$)[^\W][\w.]{0,29}$/;
+let cancel;
 
 function Signup() {
   const [user, setUser] = useState({
@@ -30,22 +24,22 @@ function Signup() {
 
   const { name, email, password, bio } = user;
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     const { name, value, files } = e.target;
 
-    if(name === 'media'){
-        setMedia(files[0])
-        setMediaPreview(URL.createObjectURL(files[0]));
+    if (name === "media") {
+      setMedia(files[0]);
+      setMediaPreview(URL.createObjectURL(files[0]));
     }
 
-    setUser((prev) => ({ ...prev, [name]: value }));
+    setUser(prev => ({ ...prev, [name]: value }));
   };
 
   const [showSocialLinks, setShowSocialLinks] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
-  const [submitDisbled, setSubmitDisabled] = useState(true);
+  const [submitDisabled, setSubmitDisabled] = useState(true);
 
   const [username, setUsername] = useState("");
   const [usernameLoading, setUsernameLoading] = useState(false);
@@ -56,24 +50,64 @@ function Signup() {
   const [highlighted, setHighlighted] = useState(false);
   const inputRef = useRef();
 
-  const handleSubmit = (e) => e.preventDefault();
-
   useEffect(() => {
-    const isUser = Object.values({ name, email, password, bio }).every((item) =>
+    const isUser = Object.values({ name, email, password, bio }).every(item =>
       Boolean(item)
     );
     isUser ? setSubmitDisabled(false) : setSubmitDisabled(true);
   }, [user]);
 
+  const checkUsername = async () => {
+    setUsernameLoading(true);
+    try {
+      cancel && cancel();
+
+      const CancelToken = axios.CancelToken;
+
+      const res = await axios.get(`${baseUrl}/api/signup/${username}`, {
+        cancelToken: new CancelToken(canceler => {
+          cancel = canceler;
+        })
+      });
+
+      if (errorMsg !== null) setErrorMsg(null);
+
+      if (res.data === "Available") {
+        setUsernameAvailable(true);
+        setUser(prev => ({ ...prev, username }));
+      }
+    } catch (error) {
+      setErrorMsg("Username Not Available");
+      setUsernameAvailable(false);
+    }
+    setUsernameLoading(false);
+  };
+
+  useEffect(() => {
+    username === "" ? setUsernameAvailable(false) : checkUsername();
+  }, [username]);
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setFormLoading(true);
+
+    let profilePicUrl;
+    if (media !== null) {
+      profilePicUrl = await uploadPic(media);
+    }
+
+    if (media !== null && !profilePicUrl) {
+      setFormLoading(false);
+      return setErrorMsg("Error Uploading Image");
+    }
+
+    await registerUser(user, profilePicUrl, setErrorMsg, setFormLoading);
+  };
+
   return (
     <>
       <HeaderMessage />
-
-      <Form
-        loading={formLoading}
-        error={errorMsg !== null}
-        onSubmit={handleSubmit}
-      >
+      <Form loading={formLoading} error={errorMsg !== null} onSubmit={handleSubmit}>
         <Message
           error
           header="Oops!"
@@ -82,7 +116,6 @@ function Signup() {
         />
 
         <Segment>
-
           <ImageDropDiv
             mediaPreview={mediaPreview}
             setMediaPreview={setMediaPreview}
@@ -92,7 +125,6 @@ function Signup() {
             setHighlighted={setHighlighted}
             handleChange={handleChange}
           />
-
           <Form.Input
             required
             label="Name"
@@ -143,7 +175,7 @@ function Signup() {
             label="Username"
             placeholder="Username"
             value={username}
-            onChange={(e) => {
+            onChange={e => {
               setUsername(e.target.value);
               if (regexUserName.test(e.target.value)) {
                 setUsernameAvailable(true);
@@ -165,11 +197,11 @@ function Signup() {
 
           <Divider hidden />
           <Button
-          icon="signup"
+            icon="signup"
             content="Signup"
             type="submit"
             color="orange"
-            disabled={submitDisbled || !usernameAvailable}
+            disabled={submitDisabled || !usernameAvailable}
           />
         </Segment>
       </Form>

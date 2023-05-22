@@ -4,6 +4,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const UserModel = require("../models/UserModel");
 const PostModel = require("../models/PostModel");
 const FollowerModel = require("../models/FollowerModel");
+const uuid = require("uuid").v4;
 
 // CREATE A POST
 
@@ -23,7 +24,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const post = await new PostModel(newPost).save();
 
-    return res.json(post);
+    return res.json(post._id);
   } catch (error) {
     console.error(error);
     return res.status(500).send(`Server error`);
@@ -105,7 +106,7 @@ router.post("/like/:postId", authMiddleware, async (req, res) => {
     const post = await PostModel.findById(postId);
 
     if (!post) {
-      return res.status(400).send("No Post found");
+      return res.status(404).send("No Post found");
     }
 
     const isLiked =
@@ -135,7 +136,7 @@ router.put("/unlike/:postId", authMiddleware, async (req, res) => {
     const post = await PostModel.findById(postId);
 
     if (!post) {
-      return res.status(400).send("No Post found");
+      return res.status(404).send("No Post found");
     }
 
     const isLiked =
@@ -162,21 +163,105 @@ router.put("/unlike/:postId", authMiddleware, async (req, res) => {
 
 //GET LIKES
 
-router.get('/like/:postId', authMiddleware, async (req, res) => {
-    try {
-       const {postId} = req.params;
-       
-       const post = await PostModel.findById(postId).populate('likes.user');
+router.get("/like/:postId", authMiddleware, async (req, res) => {
+  try {
+    const { postId } = req.params;
 
-       if(!post){
-        return res.status(401).send('No Post found')
-       }
+    const post = await PostModel.findById(postId).populate("likes.user");
 
-       return res.status(200).json(post.likes);
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send('Server error');
+    if (!post) {
+      return res.status(404).send("No Post found");
     }
-})
+
+    return res.status(200).json(post.likes);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send("Server error");
+  }
+});
+
+//CREATE A COMMENT
+
+router.post("/comment/:postId", authMiddleware, async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const { text } = req.body;
+
+    if (text.length < 1) {
+      return res.status(401).send("Comment should be atleast 1 character");
+    }
+
+    const post = await PostModel.findById(postId);
+
+    if (!post) {
+      return res.status(404).send("Post not found");
+    }
+
+    const newComment = {
+      _id: uuid(),
+      text,
+      user: req.userId,
+      date: Date.now()
+    };
+
+    await post.comments.unshift(newComment);
+    await post.save();
+
+    return res.status(200).json(newComment._id)
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send("Server error");
+  }
+});
+
+//DELETE A COMMENT
+
+router.delete("/:postId/:commentId", authMiddleware, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { userId } = req;
+
+    const post = await PostModel.findById(postId);
+
+    if (!post) {
+      return res.status(404).send("Post not found");
+    }
+
+    const comment = post.comments.find((comment) => comment._id === commentId);
+
+    if (!comment) {
+      return res.status(404).send("No Comment found");
+    }
+
+    const user = await UserModel.findById(userId);
+
+    const deleteComment = async () => {
+        const indexOf = post.comments
+          .map((comment) => comment._id)
+          .indexOf(commentId);
+
+        await post.comments.splice(indexOf, 1);
+
+        await post.save();
+
+        res.status(200).send("Deleted successfully");
+      }
+
+      if (comment.user.toString() !== comment) {
+        if (user.role == "root") {
+          await deleteComment();
+        }
+      } else {
+        res.status(401).send("Unauthorized");
+      }
+    
+
+    await deleteComment();
+  } catch (error) {
+    console.log(error);
+    res.status(500).send("Server error");
+  }
+});
 
 module.exports = router;

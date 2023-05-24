@@ -6,6 +6,7 @@ import CardPost from "../components/Post/CardPost";
 import { Segment } from "semantic-ui-react";
 import { parseCookies } from "nookies";
 import { NoPosts } from "../components/Layout/NoData";
+import { PostDeleteToastr } from "../components/Layout/Toastr";
 
 function Index({ user, postsData, errorLoading }) {
   const [posts, setPosts] = useState(postsData);
@@ -15,12 +16,17 @@ function Index({ user, postsData, errorLoading }) {
     document.title = `Welcome ,${user.name.split(" ")[0]}`;
   }, []);
 
+  useEffect(() => {
+    showToastr && setTimeout(() => setShowToastr(false), 3000);
+  }, [showToastr]);
+
   if (posts === 0 || errorLoading) {
     return <NoPosts />;
   }
 
   return (
     <>
+    {showToastr && <PostDeleteToastr />}
       <Segment>
         <CreatePost user={user} setPosts={setPosts} />
 
@@ -38,20 +44,19 @@ function Index({ user, postsData, errorLoading }) {
   );
 }
 
-Index.getInitialProps = async ctx => {
-    try {
-      const { token } = parseCookies(ctx);
-  
-      const res = await axios.get(`${baseUrl}/api/posts`, {
-        headers: { Authorization: token },
-        params: { pageNumber: 1 }
-      });
-  
-      return { postsData: res.data };
-    } catch (error) {
-      return { errorLoading: true };
-    }
-  };
-  
+Index.getInitialProps = async (ctx) => {
+  try {
+    const { token } = parseCookies(ctx);
+
+    const res = await axios.get(`${baseUrl}/api/posts`, {
+      headers: { Authorization: token },
+      params: { pageNumber: 1 }
+    });
+
+    return { postsData: res.data };
+  } catch (error) {
+    return { errorLoading: true };
+  }
+};
 
 export default Index;

@@ -24,7 +24,9 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const post = await new PostModel(newPost).save();
 
-    return res.json(post._id);
+    const postCreated = await PostModel.findById(post._id).populate('user')
+
+    return res.json(postCreated);
   } catch (error) {
     console.error(error);
     return res.status(500).send(`Server error`);
@@ -81,14 +83,14 @@ router.delete("/:postId", authMiddleware, async (req, res) => {
 
     if (post.user.toString() !== userId) {
       if (user.role === "root") {
-        await UserModel.deleteOne(post);
+        await PostModel.deleteOne(post);
         return res.status(200).send("Post deleted succsessfully");
       } else {
         return res.status(401).send("Unauthorized");
       }
     }
 
-    await UserModel.deleteOne(post);
+    await PostModel.deleteOne(post);
     return res.status(200).send("Post deleted succsessfully");
   } catch (error) {
     console.log(error);

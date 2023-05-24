@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Form, Button, Image, Divider, Message, Icon } from "semantic-ui-react";
 import uploadPic from "../../utils/uploadPicToCloudinary";
+import { submitNewPost } from "../../utils/postActions";
 
 function CreatePost({ user, setPosts }) {
   const [newPost, setNewPost] = useState({ text: "", location: "" });
@@ -36,6 +37,28 @@ function CreatePost({ user, setPosts }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    let picUrl;
+
+    if (media !== null) {
+      picUrl = await uploadPic(media);
+      if (!picUrl) {
+        setLoading(false);
+        return setError("Error Uploading Image");
+      }
+    }
+    await submitNewPost(
+      newPost.text,
+      newPost.location,
+      picUrl,
+      setPosts,
+      setNewPost,
+      setError
+    );
+
+    setMedia(null);
+    setMediaPreview(null);
+    setLoading(false);
   };
 
   return (
@@ -81,33 +104,28 @@ function CreatePost({ user, setPosts }) {
         </Form.Group>
 
         <div
+          onClick={() => inputRef.current.click()}
           style={addStyles()}
           onDragOver={(e) => {
             e.preventDefault();
             setHighlighted(true);
           }}
-
           onDragLeave={(e) => {
             e.preventDefault();
             setHighlighted(false);
           }}
-
           onDrop={(e) => {
             e.preventDefault();
             setHighlighted(true);
-            
-            const dropedFile = Array.from(e.dataTransfer.files)
-            
-            setMedia(dropedFile[0])
-            setMediaPreview(URL.createObjectURL(dropedFile[0]))
+
+            const dropedFile = Array.from(e.dataTransfer.files);
+
+            setMedia(dropedFile[0]);
+            setMediaPreview(URL.createObjectURL(dropedFile[0]));
           }}
         >
           {media === null ? (
-            <Icon
-              name="plus"
-              onClick={() => inputRef.current.click()}
-              size="big"
-            />
+            <Icon name="plus" size="big" />
           ) : (
             <>
               <Image
@@ -116,7 +134,6 @@ function CreatePost({ user, setPosts }) {
                 alt="PostImage"
                 centered
                 size="medium"
-                onClick={() => inputRef.current.click()}
               />
             </>
           )}

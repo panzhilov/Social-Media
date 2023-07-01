@@ -11,7 +11,7 @@ const uploadPic = async(media) => {
         return res.data.url;
 
     } catch (error) {
-        
+        return;
     }
 }
 

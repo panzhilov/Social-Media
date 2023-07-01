@@ -24,7 +24,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const post = await new PostModel(newPost).save();
 
-    const postCreated = await PostModel.findById(post._id).populate('user')
+    const postCreated = await PostModel.findById(post._id).populate("user");
 
     return res.json(postCreated);
   } catch (error) {
@@ -36,11 +36,29 @@ router.post("/", authMiddleware, async (req, res) => {
 //GET ALL POSTS
 
 router.get("/", authMiddleware, async (req, res) => {
+  const { pageNumber } = req.query;
+
+  const number = Number(pageNumber);
+  const size = 8;
   try {
-    const posts = await PostModel.find()
-      .sort({ createdAt: -1 })
-      .populate("user")
-      .populate("comments.user");
+    let posts;
+
+    if (number === 1) {
+      posts = await PostModel.find()
+        .limit(size)
+        .sort({ createdAt: -1 })
+        .populate("user")
+        .populate("comments.user");
+    } else {
+      const skips = size * (number - 1);
+      posts = await PostModel.find()
+        .skip(skips)
+        .limit(size)
+        .sort({ createdAt: -1 })
+        .populate("user")
+        .populate("comments.user");
+    }
+
     return res.json(posts);
   } catch (error) {
     console.log(error);
@@ -210,7 +228,7 @@ router.post("/comment/:postId", authMiddleware, async (req, res) => {
     await post.comments.unshift(newComment);
     await post.save();
 
-    return res.status(200).json(newComment._id)
+    return res.status(200).json(newComment._id);
   } catch (error) {
     console.log(error);
     return res.status(500).send("Server error");
@@ -239,25 +257,24 @@ router.delete("/:postId/:commentId", authMiddleware, async (req, res) => {
     const user = await UserModel.findById(userId);
 
     const deleteComment = async () => {
-        const indexOf = post.comments
-          .map((comment) => comment._id)
-          .indexOf(commentId);
+      const indexOf = post.comments
+        .map((comment) => comment._id)
+        .indexOf(commentId);
 
-        await post.comments.splice(indexOf, 1);
+      await post.comments.splice(indexOf, 1);
 
-        await post.save();
+      await post.save();
 
-        res.status(200).send("Deleted successfully");
+      res.status(200).send("Deleted successfully");
+    };
+
+    if (comment.user.toString() !== comment) {
+      if (user.role == "root") {
+        await deleteComment();
       }
-
-      if (comment.user.toString() !== comment) {
-        if (user.role == "root") {
-          await deleteComment();
-        }
-      } else {
-        res.status(401).send("Unauthorized");
-      }
-    
+    } else {
+      res.status(401).send("Unauthorized");
+    }
 
     await deleteComment();
   } catch (error) {
